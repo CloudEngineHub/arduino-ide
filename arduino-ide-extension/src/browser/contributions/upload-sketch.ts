@@ -127,6 +127,7 @@ export class UploadSketch extends CoreServiceContribution {
         usingProgrammer,
         verifyOptions
       );
+
       if (!uploadOptions) {
         return;
       }
@@ -137,8 +138,30 @@ export class UploadSketch extends CoreServiceContribution {
 
       const uploadResponse = await this.doWithProgress({
         progressText: nls.localize('arduino/sketch/uploading', 'Uploading...'),
-        task: (progressId, coreService, token) =>
-          coreService.upload({ ...uploadOptions, progressId }, token),
+        task: async (progressId, coreService, token) => {
+          try {
+            const response = await coreService.upload(
+              { ...uploadOptions, progressId },
+              token
+            );
+            return response;
+          } catch (err) {
+            if (err.code === 4005) {
+              const uploadWithProgrammerOptions = await this.uploadOptions(
+                true,
+                verifyOptions
+              );
+              if (uploadWithProgrammerOptions) {
+                return await coreService.upload(
+                  { ...uploadWithProgrammerOptions, progressId },
+                  token
+                );
+              }
+            }
+
+            throw err;
+          }
+        },
         keepOutput: true,
         cancelable: true,
       });
